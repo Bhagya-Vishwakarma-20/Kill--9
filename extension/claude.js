@@ -37,6 +37,13 @@ function init() {
       ${STACK_ICON}
       <span id="cs-bucket-label"></span>
     </button>
+    <button id="cs-inject-btn" title="Inject Context">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 2L11 13"/>
+        <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+      </svg>
+      Inject
+    </button>
   `;
     document.body.appendChild(widget);
 
@@ -52,8 +59,8 @@ function init() {
     </select>
     <div id="cs-status">Select a bucket</div>
     <div class="cs-hint">
-      Type your question, then press<br>
-      <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to inject context
+      Type your question, then click<br>
+      <strong>Inject</strong> to add context &amp; send
     </div>
   `;
     document.body.appendChild(panel);
@@ -100,6 +107,12 @@ function init() {
         }
     });
 
+    document.getElementById("cs-inject-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        injectContext();
+    });
+
     positionWidget();
     setInterval(positionWidget, 1000);
 
@@ -107,7 +120,9 @@ function init() {
 }
 
 function positionWidget() {
-    const composer = document.querySelector('[class*="bg-token-bg-primary"][class*="grid"]');
+    const composer = document.querySelector('fieldset[data-testid="prompt-input-ssr-interactive"]') ||
+                     document.querySelector('div[data-testid="chat-input-grid-area"]') ||
+                     document.querySelector('div.flex.flex-col.items-stretch');
     const widget = document.getElementById("cs-widget");
     if (!widget) return;
 
@@ -115,7 +130,6 @@ function positionWidget() {
         const rect = composer.getBoundingClientRect();
         widget.style.bottom = (window.innerHeight - rect.bottom + 10) + "px";
         const gap = 12;
-        widget.style.right = (window.innerWidth - rect.right - gap) + "px";
         widget.style.left = (rect.right + gap) + "px";
         widget.style.right = "auto";
     } else {
@@ -177,17 +191,34 @@ function updateStatus(msg, type) {
     }
 }
 
-function getChatGPTInput() {
-    return document.getElementById("prompt-textarea");
+function getClaudeInput() {
+    // Claude uses a contenteditable div (ProseMirror) or a plain textarea
+    return document.querySelector('div.ProseMirror[contenteditable="true"]') ||
+           document.querySelector('fieldset[data-testid="prompt-input-ssr-interactive"] textarea') ||
+           document.querySelector('div[contenteditable="true"][translate="no"]') ||
+           document.querySelector('textarea[data-testid="chat-input-ssr"]');
 }
 
 function getInputText(input) {
     if (!input) return "";
+    if (input.tagName === "TEXTAREA") return input.value || "";
     return input.innerText || input.textContent || "";
 }
 
 function setInputText(input, text) {
     if (!input) return;
+
+    if (input.tagName === "TEXTAREA") {
+        // For native textarea elements
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLTextAreaElement.prototype, "value"
+        ).set;
+        nativeSetter.call(input, text);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return;
+    }
+
+    // For contenteditable (ProseMirror) elements
     input.innerHTML = "";
     const p = document.createElement("p");
     p.textContent = text;
@@ -197,9 +228,10 @@ function setInputText(input, text) {
 
 function showOverlay() {
     if (document.getElementById("cs-overlay")) return;
-    const composer = document.querySelector('[class*="bg-token-bg-primary"][class*="grid"]');
-    const target = composer || document.querySelector('form');
-    if (!target) return;
+    const composer = document.querySelector('fieldset[data-testid="prompt-input-ssr-interactive"]') ||
+                     document.querySelector('div[data-testid="chat-input-grid-area"]') ||
+                     document.querySelector('form');
+    const target = composer || document.body;
 
     const overlay = document.createElement("div");
     overlay.id = "cs-overlay";
@@ -220,7 +252,7 @@ function showOverlay() {
     `;
     overlay.innerHTML = `
         <svg width="20" height="20" viewBox="0 0 24 24" style="animation: cs-spin 1s linear infinite;">
-            <circle cx="12" cy="12" r="10" stroke="#10a37f" stroke-width="2.5" fill="none"
+            <circle cx="12" cy="12" r="10" stroke="#d97706" stroke-width="2.5" fill="none"
                 stroke-dasharray="50" stroke-linecap="round"/>
         </svg>
         <span>Fetching context...</span>
@@ -242,7 +274,7 @@ async function injectContext() {
         return;
     }
 
-    const input = getChatGPTInput();
+    const input = getClaudeInput();
     const userQuery = getInputText(input).trim();
 
     if (!userQuery) {
@@ -290,17 +322,18 @@ Answer clearly.`;
         setInputText(input, augmentedPrompt);
         updateStatus(`Injected ${data.chunks.length} chunks — sending...`, "active");
 
-        // Auto-submit: wait for send button to become active, then click it
+        // Auto-submit: wait for the input to update, then click send
         await new Promise(resolve => setTimeout(resolve, 500));
 
         let sendButton = document.querySelector('button[data-testid="send-button"]') ||
-                         document.querySelector('button[aria-label="Send prompt"]') ||
+                         document.querySelector('button[aria-label="Send Message"]') ||
+                         document.querySelector('button[aria-label="Send message"]') ||
                          document.querySelector('button[aria-label="Send"]');
 
-        // Fallback: find button with SVG arrow icon inside the form
+        // Fallback: find the send button near the composer area
         if (!sendButton) {
-            const formButtons = document.querySelectorAll('form button');
-            for (const btn of formButtons) {
+            const buttons = document.querySelectorAll('fieldset button, div[data-testid="chat-input-grid-area"] button');
+            for (const btn of buttons) {
                 if (btn.querySelector('svg') && !btn.disabled) {
                     sendButton = btn;
                     break;
@@ -312,19 +345,21 @@ Answer clearly.`;
             sendButton.click();
         } else {
             // Fallback: simulate pressing Enter
-            input.focus();
-            input.dispatchEvent(new KeyboardEvent('keydown', {
-                key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
-                bubbles: true, cancelable: true
-            }));
-            input.dispatchEvent(new KeyboardEvent('keypress', {
-                key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
-                bubbles: true, cancelable: true
-            }));
-            input.dispatchEvent(new KeyboardEvent('keyup', {
-                key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
-                bubbles: true, cancelable: true
-            }));
+            if (input) {
+                input.focus();
+                input.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                    bubbles: true, cancelable: true
+                }));
+                input.dispatchEvent(new KeyboardEvent('keypress', {
+                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                    bubbles: true, cancelable: true
+                }));
+                input.dispatchEvent(new KeyboardEvent('keyup', {
+                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                    bubbles: true, cancelable: true
+                }));
+            }
         }
 
         updateStatus(`Injected ${data.chunks.length} chunks — sent!`, "active");
@@ -337,10 +372,12 @@ Answer clearly.`;
 
 document.addEventListener("keydown", (e) => {
     if (e.ctrlKey && e.key === "Enter") {
-        const input = getChatGPTInput();
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        const input = getClaudeInput();
         if (input && getInputText(input).trim()) {
-            e.preventDefault();
-            e.stopPropagation();
             injectContext();
         }
     }
