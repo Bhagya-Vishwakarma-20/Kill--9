@@ -37,10 +37,23 @@
                 "chatgpt.css"
             ],
             "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://chat.deepseek.com/*"
+            ],
+            "js": [
+                "deepseek.js"
+            ],
+            "css": [
+                "deepseek.css"
+            ],
+            "run_at": "document_idle"
         }
     ],
     "host_permissions": [
         "https://chatgpt.com/*",
-        "https://chat.openai.com/*"
+        "https://chat.openai.com/*",
+        "https://chat.deepseek.com/*"
     ]
 }
