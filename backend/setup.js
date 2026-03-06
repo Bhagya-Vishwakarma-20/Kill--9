@@ -12,17 +12,14 @@ async function setup() {
     });
 
     try {
-        // Test connection
         const test = await pool.query("SELECT 1 as connected");
         console.log("Connected to Neon!");
 
-        // Read and run schema
         const schema = fs.readFileSync(
             path.join(__dirname, "..", "sql", "schema.sql"),
             "utf-8"
         );
 
-        // Split by semicolons and run each statement
         const statements = schema
             .split(";")
             .map(s => s.trim())

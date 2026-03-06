@@ -14,6 +14,7 @@ CREATE TABLE pages (
   bucket_id INTEGER REFERENCES buckets(id),
   url TEXT NOT NULL,
   title TEXT,
+  severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high')),
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -24,6 +25,7 @@ CREATE TABLE chunks (
   bucket_id INTEGER REFERENCES buckets(id),
   chunk_text TEXT NOT NULL,
   url TEXT,
+  severity VARCHAR(20) DEFAULT 'medium',
   embedding vector(768),
   created_at TIMESTAMP DEFAULT NOW()
 );

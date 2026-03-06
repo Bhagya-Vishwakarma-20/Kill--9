@@ -10,10 +10,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// Mount routes
 app.use("/", routes);
 
-// Health check
 app.get("/health", (req, res) => {
     res.json({ status: "ok" });
 });
