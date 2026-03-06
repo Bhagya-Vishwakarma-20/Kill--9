@@ -37,10 +37,23 @@
                 "chatgpt.css"
             ],
             "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://claude.ai/*"
+            ],
+            "js": [
+                "claude.js"
+            ],
+            "css": [
+                "claude.css"
+            ],
+            "run_at": "document_idle"
         }
     ],
     "host_permissions": [
         "https://chatgpt.com/*",
-        "https://chat.openai.com/*"
+        "https://chat.openai.com/*",
+        "https://claude.ai/*"
     ]
 }
