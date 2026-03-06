@@ -36,7 +36,6 @@ async function loadBuckets() {
     }
 }
 
-// Create bucket
 createBucketBtn.addEventListener("click", async () => {
     const name = newBucketName.value.trim();
     if (!name) {
@@ -63,14 +62,14 @@ createBucketBtn.addEventListener("click", async () => {
         await loadBuckets();
         bucketSelect.value = data.id;
 
-        // Save as last used bucket for ChatGPT content script
+
         chrome.storage.local.set({ lastBucketId: String(data.id) });
     } catch (err) {
         showStatus(bucketStatus, "Backend offline", "error");
     }
 });
 
-// Load context from current page
+
 loadContextBtn.addEventListener("click", async () => {
     const bucketId = bucketSelect.value;
     if (!bucketId) {
@@ -111,7 +110,7 @@ loadContextBtn.addEventListener("click", async () => {
             showStatus(contextStatus, data.error, "error");
         } else {
             showStatus(contextStatus, `✅ Saved! ${data.chunks_count} chunks stored`, "success");
-            // Save this bucket as last used
+  
             chrome.storage.local.set({ lastBucketId: bucketId });
         }
     } catch (err) {

@@ -1,54 +1,144 @@
 const API_URL = "http://localhost:3000";
 let selectedBucketId = null;
+let panelOpen = false;
 
-// Build the floating widget
-function createWidget() {
+const STACK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+  <path d="M2 17l10 5 10-5"/>
+  <path d="M2 12l10 5 10-5"/>
+</svg>`;
+
+function closePanel() {
+    panelOpen = false;
+    const p = document.getElementById("cs-panel");
+    const btn = document.getElementById("cs-toggle-btn");
+    if (p) p.classList.remove("open");
+    if (btn) btn.classList.remove("active");
+    updateBucketLabel();
+}
+
+function updateBucketLabel() {
+    const label = document.getElementById("cs-bucket-label");
+    const select = document.getElementById("cs-bucket-select");
+    if (!label || !select) return;
+    const selected = select.options[select.selectedIndex];
+    if (selected && selected.value) {
+        label.textContent = selected.textContent;
+    } else {
+        label.textContent = "";
+    }
+}
+
+function init() {
     const widget = document.createElement("div");
     widget.id = "cs-widget";
-
     widget.innerHTML = `
-    <div id="cs-panel">
-      <h3>⚡ Context Stack</h3>
-      <select id="cs-bucket-select">
-        <option value="">Loading buckets...</option>
-      </select>
-      <div id="cs-status">Select a bucket to enable RAG</div>
-      <div class="cs-hint">
-        Type your question, then press<br>
-        <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to inject context
-      </div>
-    </div>
-    <button id="cs-toggle-btn" title="Context Stack">⚡</button>
+    <button id="cs-toggle-btn" title="Context Stack">
+      ${STACK_ICON}
+      <span id="cs-bucket-label"></span>
+    </button>
   `;
-
     document.body.appendChild(widget);
 
-    // Toggle panel
-    document.getElementById("cs-toggle-btn").addEventListener("click", () => {
-        document.getElementById("cs-panel").classList.toggle("open");
-    });
+    const panel = document.createElement("div");
+    panel.id = "cs-panel";
+    panel.innerHTML = `
+    <div id="cs-panel-header">
+      ${STACK_ICON}
+      Context Stack
+    </div>
+    <select id="cs-bucket-select">
+      <option value="">Loading buckets...</option>
+    </select>
+    <div id="cs-status">Select a bucket</div>
+    <div class="cs-hint">
+      Type your question, then press<br>
+      <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to inject context
+    </div>
+  `;
+    document.body.appendChild(panel);
 
-    // Load buckets
-    loadBuckets();
+    document.getElementById("cs-toggle-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        panelOpen = !panelOpen;
+        const p = document.getElementById("cs-panel");
+        const btn = document.getElementById("cs-toggle-btn");
 
-    // Bucket selection
-    document.getElementById("cs-bucket-select").addEventListener("change", (e) => {
-        selectedBucketId = e.target.value || null;
-        const status = document.getElementById("cs-status");
-        if (selectedBucketId) {
-            status.textContent = "✅ RAG active — Ctrl+Enter to inject context";
-            status.className = "active";
-            // Save selection
-            chrome.storage.local.set({ lastBucketId: selectedBucketId });
+        if (panelOpen) {
+            p.classList.add("open");
+            btn.classList.add("active");
+            positionPanel();
         } else {
-            status.textContent = "Select a bucket to enable RAG";
-            status.className = "";
+            p.classList.remove("open");
+            btn.classList.remove("active");
         }
     });
+
+    panel.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+    });
+
+    document.addEventListener("mousedown", (e) => {
+        if (!panelOpen) return;
+        const p = document.getElementById("cs-panel");
+        const btn = document.getElementById("cs-toggle-btn");
+        if (p && !p.contains(e.target) && btn && !btn.contains(e.target)) {
+            closePanel();
+        }
+    });
+
+    document.getElementById("cs-bucket-select").addEventListener("change", (e) => {
+        e.stopPropagation();
+        selectedBucketId = e.target.value || null;
+        if (selectedBucketId) {
+            updateStatus("Active — Ctrl+Enter to inject", "active");
+            chrome.storage.local.set({ lastBucketId: selectedBucketId });
+            updateBucketLabel();
+        } else {
+            updateStatus("Select a bucket", "");
+        }
+    });
+
+    positionWidget();
+    setInterval(positionWidget, 1000);
+
+    loadBuckets();
+}
+
+function positionWidget() {
+    const composer = document.querySelector('[class*="bg-token-bg-primary"][class*="grid"]');
+    const widget = document.getElementById("cs-widget");
+    if (!widget) return;
+
+    if (composer) {
+        const rect = composer.getBoundingClientRect();
+        widget.style.bottom = (window.innerHeight - rect.bottom + 10) + "px";
+        const gap = 12;
+        widget.style.right = (window.innerWidth - rect.right - gap) + "px";
+        widget.style.left = (rect.right + gap) + "px";
+        widget.style.right = "auto";
+    } else {
+        widget.style.bottom = "90px";
+        widget.style.right = "24px";
+        widget.style.left = "auto";
+    }
+}
+
+function positionPanel() {
+    const btn = document.getElementById("cs-toggle-btn");
+    const panel = document.getElementById("cs-panel");
+    if (!btn || !panel) return;
+
+    const rect = btn.getBoundingClientRect();
+    panel.style.bottom = (window.innerHeight - rect.top + 8) + "px";
+    panel.style.right = (window.innerWidth - rect.right + 8) + "px";
 }
 
 async function loadBuckets() {
     const select = document.getElementById("cs-bucket-select");
+    if (!select) return;
+
     try {
         const res = await fetch(`${API_URL}/buckets`);
         const buckets = await res.json();
@@ -61,19 +151,17 @@ async function loadBuckets() {
             select.appendChild(opt);
         });
 
-        // Auto-select last used bucket or most recent
         chrome.storage.local.get("lastBucketId", (data) => {
             if (data.lastBucketId) {
                 select.value = data.lastBucketId;
                 selectedBucketId = data.lastBucketId;
-                document.getElementById("cs-status").textContent = "✅ RAG active — Ctrl+Enter to inject context";
-                document.getElementById("cs-status").className = "active";
+                updateStatus("Active — Ctrl+Enter to inject", "active");
+                updateBucketLabel();
             } else if (buckets.length > 0) {
-                // Default to most recent bucket
                 select.value = buckets[0].id;
                 selectedBucketId = String(buckets[0].id);
-                document.getElementById("cs-status").textContent = "✅ RAG active — Ctrl+Enter to inject context";
-                document.getElementById("cs-status").className = "active";
+                updateStatus("Active — Ctrl+Enter to inject", "active");
+                updateBucketLabel();
             }
         });
     } catch (err) {
@@ -81,38 +169,76 @@ async function loadBuckets() {
     }
 }
 
-// Get the ChatGPT input textarea
+function updateStatus(msg, type) {
+    const status = document.getElementById("cs-status");
+    if (status) {
+        status.textContent = msg;
+        status.className = type || "";
+    }
+}
+
 function getChatGPTInput() {
-    // ChatGPT uses a contenteditable div with id="prompt-textarea"
     return document.getElementById("prompt-textarea");
 }
 
-// Get text from the ChatGPT input
 function getInputText(input) {
     if (!input) return "";
     return input.innerText || input.textContent || "";
 }
 
-// Set text in the ChatGPT input
 function setInputText(input, text) {
     if (!input) return;
-
-    // Clear existing content
     input.innerHTML = "";
-
-    // Create a paragraph with the text
     const p = document.createElement("p");
     p.textContent = text;
     input.appendChild(p);
-
-    // Trigger input event so ChatGPT detects the change
     input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-// Fetch relevant chunks and inject into ChatGPT input
+function showOverlay() {
+    if (document.getElementById("cs-overlay")) return;
+    const composer = document.querySelector('[class*="bg-token-bg-primary"][class*="grid"]');
+    const target = composer || document.querySelector('form');
+    if (!target) return;
+
+    const overlay = document.createElement("div");
+    overlay.id = "cs-overlay";
+    overlay.style.cssText = `
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(2px);
+        border-radius: 12px;
+        z-index: 99998;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: #ececec;
+        font-family: 'Söhne', system-ui, sans-serif;
+        font-size: 13px;
+    `;
+    overlay.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" style="animation: cs-spin 1s linear infinite;">
+            <circle cx="12" cy="12" r="10" stroke="#10a37f" stroke-width="2.5" fill="none"
+                stroke-dasharray="50" stroke-linecap="round"/>
+        </svg>
+        <span>Fetching context...</span>
+        <style>@keyframes cs-spin { to { transform: rotate(360deg); } }</style>
+    `;
+
+    target.style.position = "relative";
+    target.appendChild(overlay);
+}
+
+function hideOverlay() {
+    const overlay = document.getElementById("cs-overlay");
+    if (overlay) overlay.remove();
+}
+
 async function injectContext() {
     if (!selectedBucketId) {
-        showFloatingStatus("Select a bucket first!", "error");
+        updateStatus("Select a bucket first", "error");
         return;
     }
 
@@ -120,11 +246,12 @@ async function injectContext() {
     const userQuery = getInputText(input).trim();
 
     if (!userQuery) {
-        showFloatingStatus("Type a question first!", "error");
+        updateStatus("Type a question first", "error");
         return;
     }
 
-    showFloatingStatus("🔍 Fetching relevant context...", "");
+    updateStatus("Fetching context...", "");
+    showOverlay();
 
     try {
         const res = await fetch(`${API_URL}/retrieve`, {
@@ -139,16 +266,17 @@ async function injectContext() {
         const data = await res.json();
 
         if (!res.ok) {
-            showFloatingStatus(data.error, "error");
+            updateStatus(data.error, "error");
+            hideOverlay();
             return;
         }
 
         if (!data.context || data.chunks.length === 0) {
-            showFloatingStatus("No relevant context found", "error");
+            updateStatus("No relevant context found", "error");
+            hideOverlay();
             return;
         }
 
-        // Build the augmented prompt
         const augmentedPrompt = `Use the context below to answer the user question.
 
 Context:
@@ -159,28 +287,18 @@ ${userQuery}
 
 Answer clearly.`;
 
-        // Inject into ChatGPT input
         setInputText(input, augmentedPrompt);
-
-        showFloatingStatus(`✅ Injected ${data.chunks.length} chunks! Hit Enter to send`, "active");
+        updateStatus(`Injected ${data.chunks.length} chunks — hit Enter`, "active");
     } catch (err) {
-        showFloatingStatus("Backend offline: " + err.message, "error");
+        updateStatus("Backend offline", "error");
     }
+
+    hideOverlay();
 }
 
-function showFloatingStatus(msg, type) {
-    const status = document.getElementById("cs-status");
-    if (status) {
-        status.textContent = msg;
-        status.className = type;
-    }
-}
-
-// Listen for Ctrl+Enter
 document.addEventListener("keydown", (e) => {
     if (e.ctrlKey && e.key === "Enter") {
         const input = getChatGPTInput();
-        // Only intercept if the ChatGPT input is focused or has content
         if (input && getInputText(input).trim()) {
             e.preventDefault();
             e.stopPropagation();
@@ -189,5 +307,4 @@ document.addEventListener("keydown", (e) => {
     }
 }, true);
 
-// Create widget when page is ready
-createWidget();
+init();
