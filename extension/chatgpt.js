@@ -288,7 +288,46 @@ ${userQuery}
 Answer clearly.`;
 
         setInputText(input, augmentedPrompt);
-        updateStatus(`Injected ${data.chunks.length} chunks — hit Enter`, "active");
+        updateStatus(`Injected ${data.chunks.length} chunks — sending...`, "active");
+
+        // Auto-submit: wait for send button to become active, then click it
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        let sendButton = document.querySelector('button[data-testid="send-button"]') ||
+                         document.querySelector('button[aria-label="Send prompt"]') ||
+                         document.querySelector('button[aria-label="Send"]');
+
+        // Fallback: find button with SVG arrow icon inside the form
+        if (!sendButton) {
+            const formButtons = document.querySelectorAll('form button');
+            for (const btn of formButtons) {
+                if (btn.querySelector('svg') && !btn.disabled) {
+                    sendButton = btn;
+                    break;
+                }
+            }
+        }
+
+        if (sendButton && !sendButton.disabled) {
+            sendButton.click();
+        } else {
+            // Fallback: simulate pressing Enter
+            input.focus();
+            input.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                bubbles: true, cancelable: true
+            }));
+            input.dispatchEvent(new KeyboardEvent('keypress', {
+                key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                bubbles: true, cancelable: true
+            }));
+            input.dispatchEvent(new KeyboardEvent('keyup', {
+                key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                bubbles: true, cancelable: true
+            }));
+        }
+
+        updateStatus(`Injected ${data.chunks.length} chunks — sent!`, "active");
     } catch (err) {
         updateStatus("Backend offline", "error");
     }
