@@ -1,0 +1,101 @@
+/* Context Stack floating widget on ChatGPT */
+
+#cs-widget {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  z-index: 99999;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+#cs-toggle-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #6c3ce0, #3c8ce7);
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(108, 60, 224, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#cs-toggle-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(108, 60, 224, 0.5);
+}
+
+#cs-panel {
+  display: none;
+  position: absolute;
+  bottom: 60px;
+  right: 0;
+  width: 280px;
+  background: #1a1a2e;
+  border: 1px solid #2a2a40;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+#cs-panel.open {
+  display: block;
+}
+
+#cs-panel h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #e0e0e0;
+  font-weight: 600;
+}
+
+#cs-bucket-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #2a2a40;
+  border-radius: 8px;
+  background: #0f0f1a;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 10px;
+}
+
+#cs-bucket-select:focus {
+  border-color: #6c3ce0;
+}
+
+#cs-status {
+  font-size: 11px;
+  color: #8888aa;
+  margin-bottom: 8px;
+}
+
+#cs-status.active {
+  color: #4caf50;
+}
+
+#cs-status.error {
+  color: #f44336;
+}
+
+.cs-hint {
+  font-size: 11px;
+  color: #6666aa;
+  padding: 8px;
+  background: #0f0f1a;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.cs-hint kbd {
+  background: #2a2a40;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #e0e0e0;
+}

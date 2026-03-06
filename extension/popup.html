@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Context Stack</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 360px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #6c3ce0, #3c8ce7);
+      padding: 16px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .header p {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 4px;
+    }
+
+    .section {
+      padding: 12px 16px;
+      border-bottom: 1px solid #1e1e30;
+    }
+
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #8888aa;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    select,
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #2a2a40;
+      border-radius: 8px;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-size: 13px;
+      outline: none;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: #6c3ce0;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-small {
+      background: #2a2a40;
+      color: #e0e0e0;
+      padding: 10px 14px;
+      white-space: nowrap;
+    }
+
+    .btn-small:hover {
+      background: #3a3a55;
+    }
+
+    .btn-context {
+      background: linear-gradient(135deg, #e06c3c, #e7a03c);
+      color: white;
+      width: 100%;
+    }
+
+    .btn-context:hover {
+      opacity: 0.9;
+    }
+
+    .btn-context:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: none;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .status.success {
+      background: #1a3a2a;
+      color: #4caf50;
+      border: 1px solid #2a4a3a;
+    }
+
+    .status.error {
+      background: #3a1a1a;
+      color: #f44336;
+      border: 1px solid #4a2a2a;
+    }
+
+    .status.loading {
+      background: #1a1a3a;
+      color: #6c3ce0;
+      border: 1px solid #2a2a4a;
+    }
+
+    .hint-box {
+      margin: 12px 16px;
+      padding: 10px;
+      background: #1a1a2e;
+      border: 1px solid #2a2a40;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #8888aa;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .hint-box kbd {
+      background: #2a2a40;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #e0e0e0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <h1>⚡ Context Stack</h1>
+    <p>Save context • Use on ChatGPT</p>
+  </div>
+
+  <!-- Bucket Section -->
+  <div class="section">
+    <div class="section-title">Bucket</div>
+    <div class="row">
+      <select id="bucketSelect">
+        <option value="">Loading...</option>
+      </select>
+    </div>
+    <div class="row">
+      <input type="text" id="newBucketName" placeholder="New bucket name...">
+      <button class="btn-small" id="createBucketBtn">Create</button>
+    </div>
+    <div id="bucketStatus" class="status"></div>
+  </div>
+
+  <!-- Load Context Section -->
+  <div class="section">
+    <div class="section-title">Save Page Context</div>
+    <button class="btn-context" id="loadContextBtn">📄 Load Context from Page</button>
+    <div id="contextStatus" class="status"></div>
+  </div>
+
+  <!-- Hint -->
+  <div class="hint-box">
+    💡 Go to <strong>chatgpt.com</strong>, type a question,<br>
+    press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to inject context.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>
