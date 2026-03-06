@@ -7,7 +7,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// Register pgvector type on first connect
 pool.on("connect", async (client) => {
   await pgvector.registerTypes(client);
 });

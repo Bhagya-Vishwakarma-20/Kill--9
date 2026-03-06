@@ -1,5 +1,3 @@
-// Simple text chunker
-// Splits text into chunks of roughly 500-800 tokens (approx 4 chars per token)
 
 function chunkText(text, chunkSize = 2000, overlap = 200) {
     let chunks = [];
@@ -8,7 +6,6 @@ function chunkText(text, chunkSize = 2000, overlap = 200) {
     while (start < text.length) {
         let end = start + chunkSize;
 
-        // Try to break at a sentence or newline
         if (end < text.length) {
             let breakPoint = text.lastIndexOf(".", end);
             if (breakPoint > start + chunkSize / 2) {
