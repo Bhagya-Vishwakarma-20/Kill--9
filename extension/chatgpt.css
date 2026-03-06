@@ -1,38 +1,44 @@
-
-
 #cs-widget {
   position: fixed;
   z-index: 99999;
-  font-family: 'Söhne', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Söhne', ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 #cs-toggle-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  border-radius: 18px;
-  border: 1px solid #4e4e4e;
-  background: #2f2f2f;
-  color: #b4b4b4;
+  height: 38px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(40, 40, 40, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
-  padding: 0 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  font-family: 'Söhne', ui-sans-serif, system-ui, sans-serif;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0 14px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  font-family: inherit;
   font-size: 12px;
   white-space: nowrap;
 }
 
 #cs-toggle-btn:hover {
-  background: #3a3a3a;
+  background: rgba(55, 55, 55, 0.75);
   color: #ececec;
-  border-color: #666;
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 #cs-toggle-btn.active {
   color: #10a37f;
-  border-color: #10a37f;
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 0 2px 12px rgba(16, 163, 127, 0.15),
+    inset 0 0 0 1px rgba(16, 163, 127, 0.1);
 }
 
 #cs-toggle-btn svg {
@@ -49,17 +55,21 @@
 
 #cs-panel {
   position: fixed;
-  width: 250px;
-  background: #303030;
-  border: 1px solid #4e4e4e;
-  border-radius: 12px;
-  padding: 14px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  width: 260px;
+  background: rgba(30, 30, 30, 0.7);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
   z-index: 100000;
   opacity: 0;
-  transform: translateY(8px) scale(0.95);
+  transform: translateY(8px) scale(0.96);
   pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #cs-panel.open {
@@ -72,10 +82,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
-  color: #ececec;
+  margin-bottom: 12px;
+  color: rgba(255, 255, 255, 0.92);
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: -0.2px;
 }
 
 #cs-panel-header svg {
@@ -83,35 +94,198 @@
   height: 16px;
   color: #10a37f;
   flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(16, 163, 127, 0.3));
 }
 
-#cs-bucket-select {
-  width: 100%;
-  padding: 8px 28px 8px 10px;
-  border: 1px solid #4e4e4e;
-  border-radius: 8px;
-  background: #212121;
-  color: #ececec;
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
+#cs-bucket-list-container {
+  max-height: 170px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  position: relative;
+}
+
+#cs-bucket-list-container::-webkit-scrollbar {
+  width: 5px;
+}
+
+#cs-bucket-list-container::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 6px 0;
+}
+
+#cs-bucket-list-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+}
+
+#cs-bucket-list-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+#cs-bucket-list {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 4px 4px 0;
+  gap: 0;
+}
+
+.cs-bucket-item {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 7px 10px 7px 20px;
   cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b4b4b4' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  border-radius: 0 8px 8px 0;
+  user-select: none;
+  position: relative;
 }
 
-#cs-bucket-select:focus {
-  border-color: #10a37f;
+.cs-bucket-item::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: transparent;
+}
+
+.cs-bucket-item.in-range::before {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+
+.cs-bucket-item::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 0;
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.4);
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cs-bucket-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cs-bucket-item.selected {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.cs-bucket-item.selected::after {
+  width: 8px;
+}
+
+.cs-bucket-item.selected:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.cs-bucket-item.deleting {
+  opacity: 0.35;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.cs-bucket-icon {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  flex-shrink: 0;
+  margin-right: 10px;
+  color: rgba(255, 255, 255, 0.18);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cs-bucket-item:hover .cs-bucket-icon {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cs-bucket-item.selected .cs-bucket-icon {
+  color: #10a37f;
+  filter: drop-shadow(0 0 4px rgba(16, 163, 127, 0.45));
+}
+
+
+.cs-bucket-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-weight: 450;
+  letter-spacing: -0.1px;
+}
+
+.cs-bucket-delete {
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-left: 4px;
+}
+
+.cs-bucket-item:hover .cs-bucket-delete {
+  opacity: 1;
+}
+
+.cs-bucket-delete:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.cs-bucket-delete.confirm {
+  opacity: 1;
+  color: #fff;
+  background: rgba(239, 68, 68, 0.7);
+  border-color: rgba(239, 68, 68, 0.8);
+  font-size: 11px;
+}
+
+.cs-bucket-delete.confirm:hover {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+.cs-bucket-empty,
+.cs-bucket-loading {
+  padding: 14px 10px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+  font-weight: 450;
 }
 
 #cs-status {
   font-size: 11px;
-  color: #8e8ea0;
-  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 10px;
   line-height: 1.4;
+  padding: 0 2px;
+  font-weight: 450;
 }
 
 #cs-status.active {
@@ -119,25 +293,29 @@
 }
 
 #cs-status.error {
-  color: #ef4444;
+  color: #f87171;
 }
 
 .cs-hint {
   font-size: 11px;
-  color: #8e8ea0;
-  margin-top: 8px;
-  padding: 8px;
-  background: #212121;
-  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
   text-align: center;
   line-height: 1.5;
+  font-weight: 450;
 }
 
 .cs-hint kbd {
-  background: #4e4e4e;
-  padding: 1px 5px;
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 5px;
   font-size: 10px;
-  color: #ececec;
-  font-family: inherit;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }

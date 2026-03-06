@@ -95,21 +95,27 @@ router.post("/context", async (req, res) => {
 
 router.post("/retrieve", async (req, res) => {
   try {
-    let { query, bucket_id } = req.body;
+    let { query, bucket_id, bucket_ids } = req.body;
 
     if (!query) return res.status(400).json({ error: "query is required" });
 
-    if (!bucket_id) {
-      bucket_id = await getDefaultBucket();
-      if (!bucket_id) {
+    let ids = [];
+    if (bucket_ids && Array.isArray(bucket_ids) && bucket_ids.length > 0) {
+      ids = bucket_ids.map((id) => parseInt(id));
+    } else if (bucket_id) {
+      ids = [parseInt(bucket_id)];
+    } else {
+      const defaultId = await getDefaultBucket();
+      if (!defaultId) {
         return res
           .status(400)
           .json({ error: "No buckets found. Create one first." });
       }
+      ids = [defaultId];
     }
 
     const queryEmbedding = await getEmbedding(query);
-    const chunks = await findSimilarChunks(queryEmbedding, bucket_id);
+    const chunks = await findSimilarChunks(queryEmbedding, ids);
 
     if (chunks.length === 0) {
       return res.json({ chunks: [], context: "" });
@@ -130,6 +136,34 @@ router.post("/retrieve", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to retrieve chunks" });
+  }
+});
+router.delete("/bucket/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const bucket = await pool.query("SELECT name FROM buckets WHERE id = $1", [id]);
+    if (bucket.rows.length === 0) {
+      return res.status(404).json({ error: "Bucket not found" });
+    }
+
+    const queryIds = await pool.query("SELECT id FROM queries WHERE bucket_id = $1", [id]);
+    for (const q of queryIds.rows) {
+      await pool.query("DELETE FROM answers WHERE query_id = $1", [q.id]);
+    }
+    await pool.query("DELETE FROM queries WHERE bucket_id = $1", [id]);
+    await pool.query("DELETE FROM chunks WHERE bucket_id = $1", [id]);
+    const pageIds = await pool.query("SELECT id FROM pages WHERE bucket_id = $1", [id]);
+    for (const p of pageIds.rows) {
+      await pool.query("DELETE FROM chunks WHERE page_id = $1", [p.id]);
+    }
+    await pool.query("DELETE FROM pages WHERE bucket_id = $1", [id]);
+    await pool.query("DELETE FROM buckets WHERE id = $1", [id]);
+
+    res.json({ message: "Bucket deleted", name: bucket.rows[0].name });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete bucket" });
   }
 });
 
