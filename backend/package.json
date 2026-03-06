@@ -1,0 +1,18 @@
+{
+  "name": "context-stack-backend",
+  "version": "1.0.0",
+  "description": "Backend for Context Stack - RAG browser extension",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "pg": "^8.13.0",
+    "pgvector": "^0.2.0",
+    "@google/generative-ai": "^0.21.0"
+  }
+}

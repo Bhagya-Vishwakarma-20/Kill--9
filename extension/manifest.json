@@ -1,0 +1,46 @@
+{
+    "manifest_version": 3,
+    "name": "Context Stack",
+    "version": "2.0.0",
+    "description": "Save page context and inject RAG context into ChatGPT",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage"
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "Context Stack"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://chatgpt.com/*",
+                "https://chat.openai.com/*"
+            ],
+            "js": [
+                "chatgpt.js"
+            ],
+            "css": [
+                "chatgpt.css"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "host_permissions": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+    ]
+}
