@@ -2,6 +2,10 @@ const API_URL = "http://localhost:3000";
 let selectedBucketId = null;
 let panelOpen = false;
 
+function isExtensionValid() {
+    return !!(chrome && chrome.runtime && chrome.runtime.id);
+}
+
 const STACK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <path d="M12 2L2 7l10 5 10-5-10-5z"/>
   <path d="M2 17l10 5 10-5"/>
@@ -93,7 +97,9 @@ function init() {
         selectedBucketId = e.target.value || null;
         if (selectedBucketId) {
             updateStatus("Active — Ctrl+Enter to inject", "active");
-            chrome.storage.local.set({ lastBucketId: selectedBucketId });
+            if (isExtensionValid()) {
+                chrome.storage.local.set({ lastBucketId: selectedBucketId });
+            }
             updateBucketLabel();
         } else {
             updateStatus("Select a bucket", "");
@@ -151,19 +157,26 @@ async function loadBuckets() {
             select.appendChild(opt);
         });
 
-        chrome.storage.local.get("lastBucketId", (data) => {
-            if (data.lastBucketId) {
-                select.value = data.lastBucketId;
-                selectedBucketId = data.lastBucketId;
-                updateStatus("Active — Ctrl+Enter to inject", "active");
-                updateBucketLabel();
-            } else if (buckets.length > 0) {
-                select.value = buckets[0].id;
-                selectedBucketId = String(buckets[0].id);
-                updateStatus("Active — Ctrl+Enter to inject", "active");
-                updateBucketLabel();
-            }
-        });
+        if (isExtensionValid()) {
+            chrome.storage.local.get("lastBucketId", (data) => {
+                if (data.lastBucketId) {
+                    select.value = data.lastBucketId;
+                    selectedBucketId = data.lastBucketId;
+                    updateStatus("Active — Ctrl+Enter to inject", "active");
+                    updateBucketLabel();
+                } else if (buckets.length > 0) {
+                    select.value = buckets[0].id;
+                    selectedBucketId = String(buckets[0].id);
+                    updateStatus("Active — Ctrl+Enter to inject", "active");
+                    updateBucketLabel();
+                }
+            });
+        } else if (buckets.length > 0) {
+            select.value = buckets[0].id;
+            selectedBucketId = String(buckets[0].id);
+            updateStatus("Active — Ctrl+Enter to inject", "active");
+            updateBucketLabel();
+        }
     } catch (err) {
         select.innerHTML = '<option value="">Backend offline</option>';
     }

@@ -1,5 +1,9 @@
 
 
+function isExtensionValid() {
+    return !!(chrome && chrome.runtime && chrome.runtime.id);
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "getPageContent") {
         sendResponse({
@@ -19,6 +23,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 document.addEventListener("keydown", (e) => {
     if (e.ctrlKey && e.shiftKey && e.key === "S") {
         e.preventDefault();
+        if (!isExtensionValid()) return;
         showToast("Saving context...");
         chrome.runtime.sendMessage({
             action: "loadContextFromPage",

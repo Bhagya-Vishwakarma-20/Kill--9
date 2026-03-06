@@ -50,7 +50,6 @@
             ],
             "run_at": "document_idle"
         },
-      ,
         {
             "matches": [
                 "https://claude.ai/*"
@@ -67,7 +66,7 @@
     "host_permissions": [
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
-        "https://chat.deepseek.com/*"
+        "https://chat.deepseek.com/*",
         "https://claude.ai/*"
     ]
 }
