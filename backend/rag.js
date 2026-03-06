@@ -1,7 +1,8 @@
 const pool = require("./db");
 const pgvector = require("pgvector/pg");
 
-async function findSimilarChunks(queryEmbedding, bucketId, limit = 5) {
+async function findSimilarChunks(queryEmbedding, bucketIds, limit = 5) {
+  const ids = Array.isArray(bucketIds) ? bucketIds : [bucketIds];
   const embeddingStr = pgvector.toSql(queryEmbedding);
   const result = await pool.query(
     `SELECT chunk_text, url, severity,
@@ -20,10 +21,10 @@ async function findSimilarChunks(queryEmbedding, bucketId, limit = 5) {
                     ELSE 0.0
                 END AS final_score
      FROM chunks
-     WHERE bucket_id = $2
+     WHERE bucket_id = ANY($2::int[])
      ORDER BY final_score DESC, embedding <=> $1::vector
      LIMIT $3`,
-    [embeddingStr, bucketId, limit],
+    [embeddingStr, ids, limit],
   );
   return result.rows;
 }

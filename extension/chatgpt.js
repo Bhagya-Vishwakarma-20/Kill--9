@@ -1,5 +1,5 @@
 const API_URL = "http://localhost:3000";
-let selectedBucketId = null;
+let selectedBucketIds = [];
 let panelOpen = false;
 
 const STACK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -19,13 +19,14 @@ function closePanel() {
 
 function updateBucketLabel() {
     const label = document.getElementById("cs-bucket-label");
-    const select = document.getElementById("cs-bucket-select");
-    if (!label || !select) return;
-    const selected = select.options[select.selectedIndex];
-    if (selected && selected.value) {
-        label.textContent = selected.textContent;
-    } else {
+    if (!label) return;
+    if (selectedBucketIds.length === 0) {
         label.textContent = "";
+    } else if (selectedBucketIds.length === 1) {
+        const item = document.querySelector(`.cs-bucket-item[data-id="${selectedBucketIds[0]}"] .cs-bucket-name`);
+        label.textContent = item ? item.textContent : "1 bucket";
+    } else {
+        label.textContent = `${selectedBucketIds.length} buckets`;
     }
 }
 
@@ -47,10 +48,12 @@ function init() {
       ${STACK_ICON}
       Context Stack
     </div>
-    <select id="cs-bucket-select">
-      <option value="">Loading buckets...</option>
-    </select>
-    <div id="cs-status">Select a bucket</div>
+    <div id="cs-bucket-list-container">
+      <div id="cs-bucket-list">
+        <div class="cs-bucket-loading">Loading buckets...</div>
+      </div>
+    </div>
+    <div id="cs-status">Select buckets</div>
     <div class="cs-hint">
       Type your question, then press<br>
       <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to inject context
@@ -85,18 +88,6 @@ function init() {
         const btn = document.getElementById("cs-toggle-btn");
         if (p && !p.contains(e.target) && btn && !btn.contains(e.target)) {
             closePanel();
-        }
-    });
-
-    document.getElementById("cs-bucket-select").addEventListener("change", (e) => {
-        e.stopPropagation();
-        selectedBucketId = e.target.value || null;
-        if (selectedBucketId) {
-            updateStatus("Active — Ctrl+Enter to inject", "active");
-            chrome.storage.local.set({ lastBucketId: selectedBucketId });
-            updateBucketLabel();
-        } else {
-            updateStatus("Select a bucket", "");
         }
     });
 
@@ -135,37 +126,152 @@ function positionPanel() {
     panel.style.right = (window.innerWidth - rect.right + 8) + "px";
 }
 
+function toggleBucket(id) {
+    const idx = selectedBucketIds.indexOf(id);
+    if (idx === -1) {
+        selectedBucketIds.push(id);
+    } else {
+        selectedBucketIds.splice(idx, 1);
+    }
+
+    const item = document.querySelector(`.cs-bucket-item[data-id="${id}"]`);
+    if (item) {
+        item.classList.toggle("selected", selectedBucketIds.indexOf(id) !== -1);
+    }
+
+    if (selectedBucketIds.length > 0) {
+        updateStatus(`${selectedBucketIds.length} bucket${selectedBucketIds.length > 1 ? "s" : ""} selected — Ctrl+Enter to inject`, "active");
+        chrome.storage.local.set({ lastBucketIds: selectedBucketIds.map(String) });
+    } else {
+        updateStatus("Select buckets", "");
+    }
+    updateBucketLabel();
+    updateTreeLines();
+}
+
+function updateTreeLines() {
+    const list = document.getElementById("cs-bucket-list");
+    if (!list) return;
+
+    const items = Array.from(list.querySelectorAll(".cs-bucket-item"));
+    items.forEach((item) => item.classList.remove("in-range"));
+
+    const selectedIndices = [];
+    items.forEach((item, i) => {
+        if (item.classList.contains("selected")) selectedIndices.push(i);
+    });
+
+    if (selectedIndices.length === 0) return;
+
+    const first = selectedIndices[0];
+    const last = selectedIndices[selectedIndices.length - 1];
+
+    for (let i = first; i <= last; i++) {
+        items[i].classList.add("in-range");
+    }
+}
+
+async function deleteBucket(id, name) {
+    const item = document.querySelector(`.cs-bucket-item[data-id="${id}"]`);
+    if (item) item.classList.add("deleting");
+    updateStatus("Deleting...", "");
+    try {
+        const res = await fetch(`${API_URL}/bucket/${id}`, { method: "DELETE" });
+        const data = await res.json();
+        if (!res.ok) {
+            if (item) item.classList.remove("deleting");
+            updateStatus(data.error || "Failed to delete", "error");
+            return;
+        }
+        const idx = selectedBucketIds.indexOf(id);
+        if (idx !== -1) selectedBucketIds.splice(idx, 1);
+        updateStatus(`"${name}" deleted`, "active");
+        updateBucketLabel();
+        await loadBuckets();
+        updateTreeLines();
+    } catch (err) {
+        if (item) item.classList.remove("deleting");
+        updateStatus("Backend offline", "error");
+    }
+}
+
 async function loadBuckets() {
-    const select = document.getElementById("cs-bucket-select");
-    if (!select) return;
+    const list = document.getElementById("cs-bucket-list");
+    if (!list) return;
 
     try {
         const res = await fetch(`${API_URL}/buckets`);
         const buckets = await res.json();
 
-        select.innerHTML = '<option value="">-- Select Bucket --</option>';
+        if (buckets.length === 0) {
+            list.innerHTML = '<div class="cs-bucket-empty">No buckets yet</div>';
+            return;
+        }
+
+        list.innerHTML = "";
         buckets.forEach((b) => {
-            const opt = document.createElement("option");
-            opt.value = b.id;
-            opt.textContent = b.name;
-            select.appendChild(opt);
+            const item = document.createElement("label");
+            item.className = "cs-bucket-item";
+            item.dataset.id = String(b.id);
+            item.innerHTML = `
+                <svg class="cs-bucket-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+                <span class="cs-bucket-name">${b.name}</span>
+                <button class="cs-bucket-delete" title="Delete bucket">&times;</button>
+            `;
+            item.addEventListener("click", (e) => {
+                if (e.target.closest(".cs-bucket-delete")) return;
+                e.preventDefault();
+                e.stopPropagation();
+                toggleBucket(String(b.id));
+            });
+            const deleteBtn = item.querySelector(".cs-bucket-delete");
+            deleteBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (deleteBtn.classList.contains("confirm")) {
+                    deleteBucket(String(b.id), b.name);
+                } else {
+                    deleteBtn.classList.add("confirm");
+                    deleteBtn.innerHTML = "&#10003;";
+                    deleteBtn.title = "Click again to confirm";
+                    setTimeout(() => {
+                        deleteBtn.classList.remove("confirm");
+                        deleteBtn.innerHTML = "&times;";
+                        deleteBtn.title = "Delete bucket";
+                    }, 2000);
+                }
+            });
+            list.appendChild(item);
         });
 
-        chrome.storage.local.get("lastBucketId", (data) => {
-            if (data.lastBucketId) {
-                select.value = data.lastBucketId;
-                selectedBucketId = data.lastBucketId;
-                updateStatus("Active — Ctrl+Enter to inject", "active");
-                updateBucketLabel();
-            } else if (buckets.length > 0) {
-                select.value = buckets[0].id;
-                selectedBucketId = String(buckets[0].id);
-                updateStatus("Active — Ctrl+Enter to inject", "active");
-                updateBucketLabel();
+        chrome.storage.local.get("lastBucketIds", (data) => {
+            let saved = data.lastBucketIds;
+            if (!saved) {
+                chrome.storage.local.get("lastBucketId", (oldData) => {
+                    if (oldData.lastBucketId) {
+                        toggleBucket(String(oldData.lastBucketId));
+                    } else if (buckets.length > 0) {
+                        toggleBucket(String(buckets[0].id));
+                    }
+                });
+            } else {
+                saved.forEach((id) => {
+                    const exists = buckets.some((b) => String(b.id) === String(id));
+                    if (exists) {
+                        toggleBucket(String(id));
+                    }
+                });
+                if (selectedBucketIds.length === 0 && buckets.length > 0) {
+                    toggleBucket(String(buckets[0].id));
+                }
             }
         });
     } catch (err) {
-        select.innerHTML = '<option value="">Backend offline</option>';
+        list.innerHTML = '<div class="cs-bucket-empty">Backend offline</div>';
     }
 }
 
@@ -237,8 +343,8 @@ function hideOverlay() {
 }
 
 async function injectContext() {
-    if (!selectedBucketId) {
-        updateStatus("Select a bucket first", "error");
+    if (selectedBucketIds.length === 0) {
+        updateStatus("Select at least one bucket", "error");
         return;
     }
 
@@ -259,7 +365,7 @@ async function injectContext() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 query: userQuery,
-                bucket_id: parseInt(selectedBucketId),
+                bucket_ids: selectedBucketIds.map((id) => parseInt(id)),
             }),
         });
 
@@ -290,14 +396,12 @@ Answer clearly.`;
         setInputText(input, augmentedPrompt);
         updateStatus(`Injected ${data.chunks.length} chunks — sending...`, "active");
 
-        // Auto-submit: wait for send button to become active, then click it
         await new Promise(resolve => setTimeout(resolve, 500));
 
         let sendButton = document.querySelector('button[data-testid="send-button"]') ||
-                         document.querySelector('button[aria-label="Send prompt"]') ||
-                         document.querySelector('button[aria-label="Send"]');
+            document.querySelector('button[aria-label="Send prompt"]') ||
+            document.querySelector('button[aria-label="Send"]');
 
-        // Fallback: find button with SVG arrow icon inside the form
         if (!sendButton) {
             const formButtons = document.querySelectorAll('form button');
             for (const btn of formButtons) {
@@ -311,7 +415,6 @@ Answer clearly.`;
         if (sendButton && !sendButton.disabled) {
             sendButton.click();
         } else {
-            // Fallback: simulate pressing Enter
             input.focus();
             input.dispatchEvent(new KeyboardEvent('keydown', {
                 key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
