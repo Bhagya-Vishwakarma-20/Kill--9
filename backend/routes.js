@@ -3,6 +3,8 @@ const pool = require("./db");
 const { chunkText } = require("./chunker");
 const { getEmbedding, getEmbeddings } = require("./embedding");
 const { findSimilarChunks, getDefaultBucket } = require("./rag");
+const { detectIntent } = require("./intentDetector");
+const { expandQuery } = require("./queryExpander");
 const pgvector = require("pgvector/pg");
 
 const router = express.Router();
@@ -114,11 +116,15 @@ router.post("/retrieve", async (req, res) => {
       ids = [defaultId];
     }
 
-    const queryEmbedding = await getEmbedding(query);
+    const { intent, confidence, scores } = await detectIntent(query);
+    const expandedQuery = expandQuery(query, intent);
+    console.log(`[Intent] "${query}" → intent=${intent} (confidence=${confidence}) → "${expandedQuery}"`);
+
+    const queryEmbedding = await getEmbedding(expandedQuery);
     const chunks = await findSimilarChunks(queryEmbedding, ids);
 
     if (chunks.length === 0) {
-      return res.json({ chunks: [], context: "" });
+      return res.json({ chunks: [], context: "", intent, expandedQuery });
     }
 
     const context = chunks
@@ -132,6 +138,8 @@ router.post("/retrieve", async (req, res) => {
         similarity: c.similarity,
       })),
       context,
+      intent,
+      expandedQuery,
     });
   } catch (err) {
     console.error(err);

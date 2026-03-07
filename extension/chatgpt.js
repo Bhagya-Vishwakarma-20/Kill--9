@@ -248,16 +248,23 @@ async function loadBuckets() {
             list.appendChild(item);
         });
 
-        chrome.storage.local.get("lastBucketIds", (data) => {
+        chrome.storage.local.get(["lastContextBucketId", "lastBucketIds", "lastBucketId"], (data) => {
+            if (data.lastContextBucketId) {
+                const contextId = String(data.lastContextBucketId);
+                const exists = buckets.some((b) => String(b.id) === contextId);
+                if (exists) {
+                    toggleBucket(contextId);
+                    return;
+                }
+            }
+
             let saved = data.lastBucketIds;
             if (!saved) {
-                chrome.storage.local.get("lastBucketId", (oldData) => {
-                    if (oldData.lastBucketId) {
-                        toggleBucket(String(oldData.lastBucketId));
-                    } else if (buckets.length > 0) {
-                        toggleBucket(String(buckets[0].id));
-                    }
-                });
+                if (data.lastBucketId) {
+                    toggleBucket(String(data.lastBucketId));
+                } else if (buckets.length > 0) {
+                    toggleBucket(String(buckets[0].id));
+                }
             } else {
                 saved.forEach((id) => {
                     const exists = buckets.some((b) => String(b.id) === String(id));
@@ -383,7 +390,7 @@ async function injectContext() {
             return;
         }
 
-        const augmentedPrompt = `Use the context below to answer the user question.
+        const augmentedPrompt = `Use the context below (${data.chunks.length} retrieved chunks) to answer the user question.
 
 Context:
 ${data.context}
@@ -391,7 +398,7 @@ ${data.context}
 Question:
 ${userQuery}
 
-Answer clearly.`;
+Answer clearly. At the end of your answer, add a "Sources:" section listing only the source URLs (from the [Source: ...] tags above) that you actually used to form your answer.`;
 
         setInputText(input, augmentedPrompt);
         updateStatus(`Injected ${data.chunks.length} chunks — sending...`, "active");

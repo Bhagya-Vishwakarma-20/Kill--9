@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const routes = require("./routes");
+const { warmUp } = require("./intentDetector");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,4 +19,5 @@ app.get("/health", (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Context Stack backend running on http://localhost:${PORT}`);
+    warmUp();
 });
