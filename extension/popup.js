@@ -131,7 +131,7 @@ loadContextBtn.addEventListener("click", async () => {
         `Saved! ${data.chunks_count} chunks stored (${severity})`,
         "success",
       );
-      chrome.storage.local.set({ lastBucketId: bucketId });
+      chrome.storage.local.set({ lastBucketId: bucketId, lastContextBucketId: bucketId });
     }
   } catch (err) {
     showStatus(contextStatus, "Failed: " + err.message, "error");

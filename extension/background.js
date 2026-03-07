@@ -30,7 +30,7 @@ async function handleLoadContext(content, tabId) {
             const buckets = await res.json();
             if (buckets.length > 0) {
                 bucketId = String(buckets[0].id);
-                chrome.storage.local.set({ lastBucketId: bucketId });
+                chrome.storage.local.set({ lastBucketId: bucketId, lastContextBucketId: bucketId });
             } else {
                 showNotification(tabId, "No buckets found. Create one first.");
                 return;

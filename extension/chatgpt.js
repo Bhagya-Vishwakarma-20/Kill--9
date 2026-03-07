@@ -260,13 +260,11 @@ async function loadBuckets() {
         chrome.storage.local.get("lastBucketIds", (data) => {
             let saved = data.lastBucketIds;
             if (!saved) {
-                chrome.storage.local.get("lastBucketId", (oldData) => {
-                    if (oldData.lastBucketId) {
-                        toggleBucket(String(oldData.lastBucketId));
-                    } else if (buckets.length > 0) {
-                        toggleBucket(String(buckets[0].id));
-                    }
-                });
+                if (data.lastBucketId) {
+                    toggleBucket(String(data.lastBucketId));
+                } else if (buckets.length > 0) {
+                    toggleBucket(String(buckets[0].id));
+                }
             } else {
                 saved.forEach((id) => {
                     const exists = buckets.some((b) => String(b.id) === String(id));
@@ -393,7 +391,7 @@ async function injectContext() {
             return;
         }
 
-        const augmentedPrompt = `Use the context below to answer the user question.
+        const augmentedPrompt = `Use the context below (${data.chunks.length} retrieved chunks) to answer the user question.
 
 Context:
 ${data.context}
@@ -401,7 +399,7 @@ ${data.context}
 Question:
 ${userQuery}
 
-Answer clearly.`;
+Answer clearly. At the end of your answer, add a "Sources:" section listing only the source URLs (from the [Source: ...] tags above) that you actually used to form your answer.`;
 
         setInputText(input, augmentedPrompt);
         updateStatus(`Injected ${data.chunks.length} chunks — sending...`, "active");
