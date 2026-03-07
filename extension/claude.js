@@ -1,0 +1,399 @@
+const API_URL = "http://localhost:3000";
+let selectedBucketId = null;
+let panelOpen = false;
+
+function isExtensionValid() {
+    return !!(chrome && chrome.runtime && chrome.runtime.id);
+}
+
+const STACK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+  <path d="M2 17l10 5 10-5"/>
+  <path d="M2 12l10 5 10-5"/>
+</svg>`;
+
+function closePanel() {
+    panelOpen = false;
+    const p = document.getElementById("cs-panel");
+    const btn = document.getElementById("cs-toggle-btn");
+    if (p) p.classList.remove("open");
+    if (btn) btn.classList.remove("active");
+    updateBucketLabel();
+}
+
+function updateBucketLabel() {
+    const label = document.getElementById("cs-bucket-label");
+    const select = document.getElementById("cs-bucket-select");
+    if (!label || !select) return;
+    const selected = select.options[select.selectedIndex];
+    if (selected && selected.value) {
+        label.textContent = selected.textContent;
+    } else {
+        label.textContent = "";
+    }
+}
+
+function init() {
+    const widget = document.createElement("div");
+    widget.id = "cs-widget";
+    widget.innerHTML = `
+    <button id="cs-toggle-btn" title="Context Stack">
+      ${STACK_ICON}
+      <span id="cs-bucket-label"></span>
+    </button>
+    <button id="cs-inject-btn" title="Inject Context">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 2L11 13"/>
+        <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+      </svg>
+      Inject
+    </button>
+  `;
+    document.body.appendChild(widget);
+
+    const panel = document.createElement("div");
+    panel.id = "cs-panel";
+    panel.innerHTML = `
+    <div id="cs-panel-header">
+      ${STACK_ICON}
+      Context Stack
+    </div>
+    <select id="cs-bucket-select">
+      <option value="">Loading buckets...</option>
+    </select>
+    <div id="cs-status">Select a bucket</div>
+    <div class="cs-hint">
+      Type your question, then click<br>
+      <strong>Inject</strong> to add context &amp; send
+    </div>
+  `;
+    document.body.appendChild(panel);
+
+    document.getElementById("cs-toggle-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        panelOpen = !panelOpen;
+        const p = document.getElementById("cs-panel");
+        const btn = document.getElementById("cs-toggle-btn");
+
+        if (panelOpen) {
+            p.classList.add("open");
+            btn.classList.add("active");
+            positionPanel();
+        } else {
+            p.classList.remove("open");
+            btn.classList.remove("active");
+        }
+    });
+
+    panel.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+    });
+
+    document.addEventListener("mousedown", (e) => {
+        if (!panelOpen) return;
+        const p = document.getElementById("cs-panel");
+        const btn = document.getElementById("cs-toggle-btn");
+        if (p && !p.contains(e.target) && btn && !btn.contains(e.target)) {
+            closePanel();
+        }
+    });
+
+    document.getElementById("cs-bucket-select").addEventListener("change", (e) => {
+        e.stopPropagation();
+        selectedBucketId = e.target.value || null;
+        if (selectedBucketId) {
+            updateStatus("Active — Ctrl+Enter to inject", "active");
+            if (isExtensionValid()) {
+                chrome.storage.local.set({ lastBucketId: selectedBucketId });
+            }
+            updateBucketLabel();
+        } else {
+            updateStatus("Select a bucket", "");
+        }
+    });
+
+    document.getElementById("cs-inject-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        injectContext();
+    });
+
+    positionWidget();
+    setInterval(positionWidget, 1000);
+
+    loadBuckets();
+}
+
+function positionWidget() {
+    const composer = document.querySelector('fieldset[data-testid="prompt-input-ssr-interactive"]') ||
+                     document.querySelector('div[data-testid="chat-input-grid-area"]') ||
+                     document.querySelector('div.flex.flex-col.items-stretch');
+    const widget = document.getElementById("cs-widget");
+    if (!widget) return;
+
+    if (composer) {
+        const rect = composer.getBoundingClientRect();
+        widget.style.bottom = (window.innerHeight - rect.bottom + 10) + "px";
+        const gap = 12;
+        widget.style.left = (rect.right + gap) + "px";
+        widget.style.right = "auto";
+    } else {
+        widget.style.bottom = "90px";
+        widget.style.right = "24px";
+        widget.style.left = "auto";
+    }
+}
+
+function positionPanel() {
+    const btn = document.getElementById("cs-toggle-btn");
+    const panel = document.getElementById("cs-panel");
+    if (!btn || !panel) return;
+
+    const rect = btn.getBoundingClientRect();
+    panel.style.bottom = (window.innerHeight - rect.top + 8) + "px";
+    panel.style.right = (window.innerWidth - rect.right + 8) + "px";
+}
+
+async function loadBuckets() {
+    const select = document.getElementById("cs-bucket-select");
+    if (!select) return;
+
+    try {
+        const res = await fetch(`${API_URL}/buckets`);
+        const buckets = await res.json();
+
+        select.innerHTML = '<option value="">-- Select Bucket --</option>';
+        buckets.forEach((b) => {
+            const opt = document.createElement("option");
+            opt.value = b.id;
+            opt.textContent = b.name;
+            select.appendChild(opt);
+        });
+
+        if (isExtensionValid()) {
+            chrome.storage.local.get("lastBucketId", (data) => {
+                if (data.lastBucketId) {
+                    select.value = data.lastBucketId;
+                    selectedBucketId = data.lastBucketId;
+                    updateStatus("Active — Ctrl+Enter to inject", "active");
+                    updateBucketLabel();
+                } else if (buckets.length > 0) {
+                    select.value = buckets[0].id;
+                    selectedBucketId = String(buckets[0].id);
+                    updateStatus("Active — Ctrl+Enter to inject", "active");
+                    updateBucketLabel();
+                }
+            });
+        } else if (buckets.length > 0) {
+            select.value = buckets[0].id;
+            selectedBucketId = String(buckets[0].id);
+            updateStatus("Active — Ctrl+Enter to inject", "active");
+            updateBucketLabel();
+        }
+    } catch (err) {
+        select.innerHTML = '<option value="">Backend offline</option>';
+    }
+}
+
+function updateStatus(msg, type) {
+    const status = document.getElementById("cs-status");
+    if (status) {
+        status.textContent = msg;
+        status.className = type || "";
+    }
+}
+
+function getClaudeInput() {
+    // Claude uses a contenteditable div (ProseMirror) or a plain textarea
+    return document.querySelector('div.ProseMirror[contenteditable="true"]') ||
+           document.querySelector('fieldset[data-testid="prompt-input-ssr-interactive"] textarea') ||
+           document.querySelector('div[contenteditable="true"][translate="no"]') ||
+           document.querySelector('textarea[data-testid="chat-input-ssr"]');
+}
+
+function getInputText(input) {
+    if (!input) return "";
+    if (input.tagName === "TEXTAREA") return input.value || "";
+    return input.innerText || input.textContent || "";
+}
+
+function setInputText(input, text) {
+    if (!input) return;
+
+    if (input.tagName === "TEXTAREA") {
+        // For native textarea elements
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLTextAreaElement.prototype, "value"
+        ).set;
+        nativeSetter.call(input, text);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return;
+    }
+
+    // For contenteditable (ProseMirror) elements
+    input.innerHTML = "";
+    const p = document.createElement("p");
+    p.textContent = text;
+    input.appendChild(p);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function showOverlay() {
+    if (document.getElementById("cs-overlay")) return;
+    const composer = document.querySelector('fieldset[data-testid="prompt-input-ssr-interactive"]') ||
+                     document.querySelector('div[data-testid="chat-input-grid-area"]') ||
+                     document.querySelector('form');
+    const target = composer || document.body;
+
+    const overlay = document.createElement("div");
+    overlay.id = "cs-overlay";
+    overlay.style.cssText = `
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(2px);
+        border-radius: 12px;
+        z-index: 99998;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: #ececec;
+        font-family: 'Söhne', system-ui, sans-serif;
+        font-size: 13px;
+    `;
+    overlay.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" style="animation: cs-spin 1s linear infinite;">
+            <circle cx="12" cy="12" r="10" stroke="#d97706" stroke-width="2.5" fill="none"
+                stroke-dasharray="50" stroke-linecap="round"/>
+        </svg>
+        <span>Fetching context...</span>
+        <style>@keyframes cs-spin { to { transform: rotate(360deg); } }</style>
+    `;
+
+    target.style.position = "relative";
+    target.appendChild(overlay);
+}
+
+function hideOverlay() {
+    const overlay = document.getElementById("cs-overlay");
+    if (overlay) overlay.remove();
+}
+
+async function injectContext() {
+    if (!selectedBucketId) {
+        updateStatus("Select a bucket first", "error");
+        return;
+    }
+
+    const input = getClaudeInput();
+    const userQuery = getInputText(input).trim();
+
+    if (!userQuery) {
+        updateStatus("Type a question first", "error");
+        return;
+    }
+
+    updateStatus("Fetching context...", "");
+    showOverlay();
+
+    try {
+        const res = await fetch(`${API_URL}/retrieve`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                query: userQuery,
+                bucket_id: parseInt(selectedBucketId),
+            }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            updateStatus(data.error, "error");
+            hideOverlay();
+            return;
+        }
+
+        if (!data.context || data.chunks.length === 0) {
+            updateStatus("No relevant context found", "error");
+            hideOverlay();
+            return;
+        }
+
+        const augmentedPrompt = `Use the context below to answer the user question.
+
+Context:
+${data.context}
+
+Question:
+${userQuery}
+
+Answer clearly.`;
+
+        setInputText(input, augmentedPrompt);
+        updateStatus(`Injected ${data.chunks.length} chunks — sending...`, "active");
+
+        // Auto-submit: wait for the input to update, then click send
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        let sendButton = document.querySelector('button[data-testid="send-button"]') ||
+                         document.querySelector('button[aria-label="Send Message"]') ||
+                         document.querySelector('button[aria-label="Send message"]') ||
+                         document.querySelector('button[aria-label="Send"]');
+
+        // Fallback: find the send button near the composer area
+        if (!sendButton) {
+            const buttons = document.querySelectorAll('fieldset button, div[data-testid="chat-input-grid-area"] button');
+            for (const btn of buttons) {
+                if (btn.querySelector('svg') && !btn.disabled) {
+                    sendButton = btn;
+                    break;
+                }
+            }
+        }
+
+        if (sendButton && !sendButton.disabled) {
+            sendButton.click();
+        } else {
+            // Fallback: simulate pressing Enter
+            if (input) {
+                input.focus();
+                input.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                    bubbles: true, cancelable: true
+                }));
+                input.dispatchEvent(new KeyboardEvent('keypress', {
+                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                    bubbles: true, cancelable: true
+                }));
+                input.dispatchEvent(new KeyboardEvent('keyup', {
+                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                    bubbles: true, cancelable: true
+                }));
+            }
+        }
+
+        updateStatus(`Injected ${data.chunks.length} chunks — sent!`, "active");
+    } catch (err) {
+        updateStatus("Backend offline", "error");
+    }
+
+    hideOverlay();
+}
+
+document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        const input = getClaudeInput();
+        if (input && getInputText(input).trim()) {
+            injectContext();
+        }
+    }
+}, true);
+
+init();

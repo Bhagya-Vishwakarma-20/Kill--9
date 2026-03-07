@@ -2,6 +2,10 @@ const API_URL = "http://localhost:3000";
 let selectedBucketIds = [];
 let panelOpen = false;
 
+function isExtensionValid() {
+    return !!(chrome && chrome.runtime && chrome.runtime.id);
+}
+
 const STACK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <path d="M12 2L2 7l10 5 10-5-10-5z"/>
   <path d="M2 17l10 5 10-5"/>
@@ -141,7 +145,9 @@ function toggleBucket(id) {
 
     if (selectedBucketIds.length > 0) {
         updateStatus(`${selectedBucketIds.length} bucket${selectedBucketIds.length > 1 ? "s" : ""} selected — Ctrl+Enter to inject`, "active");
-        chrome.storage.local.set({ lastBucketIds: selectedBucketIds.map(String) });
+        if (isExtensionValid()) {
+            chrome.storage.local.set({ lastBucketIds: selectedBucketIds.map(String) });
+        }
     } else {
         updateStatus("Select buckets", "");
     }
@@ -248,16 +254,10 @@ async function loadBuckets() {
             list.appendChild(item);
         });
 
-        chrome.storage.local.get(["lastContextBucketId", "lastBucketIds", "lastBucketId"], (data) => {
-            if (data.lastContextBucketId) {
-                const contextId = String(data.lastContextBucketId);
-                const exists = buckets.some((b) => String(b.id) === contextId);
-                if (exists) {
-                    toggleBucket(contextId);
-                    return;
-                }
-            }
-
+        if (!isExtensionValid()) {
+            if (buckets.length > 0) toggleBucket(String(buckets[0].id));
+        } else {
+        chrome.storage.local.get("lastBucketIds", (data) => {
             let saved = data.lastBucketIds;
             if (!saved) {
                 if (data.lastBucketId) {
@@ -277,6 +277,7 @@ async function loadBuckets() {
                 }
             }
         });
+        }
     } catch (err) {
         list.innerHTML = '<div class="cs-bucket-empty">Backend offline</div>';
     }
