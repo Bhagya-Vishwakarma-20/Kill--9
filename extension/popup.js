@@ -1,12 +1,70 @@
 const API_URL = "http://localhost:3000";
 
 const bucketSelect = document.getElementById("bucketSelect");
+const bucketDropdown = document.getElementById("bucketDropdown");
+const bucketDropdownBtn = document.getElementById("bucketDropdownBtn");
+const bucketDropdownLabel = document.getElementById("bucketDropdownLabel");
+const bucketDropdownMenu = document.getElementById("bucketDropdownMenu");
 const newBucketName = document.getElementById("newBucketName");
 const createBucketBtn = document.getElementById("createBucketBtn");
 const bucketStatus = document.getElementById("bucketStatus");
 const loadContextBtn = document.getElementById("loadContextBtn");
 const contextStatus = document.getElementById("contextStatus");
 const priorityButtons = document.querySelectorAll(".btn-priority");
+let dropdownOpen = false;
+
+function closeBucketDropdown() {
+  dropdownOpen = false;
+  bucketDropdownBtn.classList.remove("open");
+  bucketDropdownMenu.classList.remove("open");
+}
+
+function setBucketSelection(bucketId) {
+  bucketSelect.value = bucketId ? String(bucketId) : "";
+
+  const selectedOption = Array.from(bucketSelect.options).find(
+    (opt) => String(opt.value) === String(bucketSelect.value),
+  );
+
+  bucketDropdownLabel.textContent = selectedOption
+    ? selectedOption.textContent
+    : "Select bucket";
+
+  const items = bucketDropdownMenu.querySelectorAll(".bucket-dropdown-item");
+  items.forEach((item) => {
+    item.classList.toggle(
+      "active",
+      String(item.dataset.value) === String(bucketSelect.value),
+    );
+  });
+
+  closeBucketDropdown();
+}
+
+function renderBucketMenu(buckets) {
+  bucketDropdownMenu.innerHTML = "";
+
+  if (buckets.length === 0) {
+    const emptyItem = document.createElement("button");
+    emptyItem.type = "button";
+    emptyItem.className = "bucket-dropdown-item disabled";
+    emptyItem.textContent = "No buckets yet";
+    emptyItem.disabled = true;
+    bucketDropdownMenu.appendChild(emptyItem);
+    bucketDropdownLabel.textContent = "No buckets yet";
+    return;
+  }
+
+  buckets.forEach((b) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "bucket-dropdown-item";
+    item.dataset.value = String(b.id);
+    item.textContent = b.name;
+    item.addEventListener("click", () => setBucketSelection(String(b.id)));
+    bucketDropdownMenu.appendChild(item);
+  });
+}
 
 function showStatus(el, message, type) {
   el.textContent = message;
@@ -20,6 +78,22 @@ priorityButtons.forEach((btn) => {
   });
 });
 
+bucketDropdownBtn.addEventListener("click", () => {
+  if (bucketDropdownMenu.querySelector(".bucket-dropdown-item.disabled")) {
+    return;
+  }
+
+  dropdownOpen = !dropdownOpen;
+  bucketDropdownBtn.classList.toggle("open", dropdownOpen);
+  bucketDropdownMenu.classList.toggle("open", dropdownOpen);
+});
+
+document.addEventListener("click", (event) => {
+  if (!bucketDropdown.contains(event.target)) {
+    closeBucketDropdown();
+  }
+});
+
 async function loadBuckets() {
   try {
     const res = await fetch(`${API_URL}/buckets`);
@@ -29,6 +103,7 @@ async function loadBuckets() {
 
     if (buckets.length === 0) {
       bucketSelect.innerHTML = '<option value="">No buckets yet</option>';
+      renderBucketMenu([]);
       return;
     }
 
@@ -38,8 +113,14 @@ async function loadBuckets() {
       opt.textContent = b.name;
       bucketSelect.appendChild(opt);
     });
+
+    renderBucketMenu(buckets);
+    setBucketSelection(String(buckets[0].id));
   } catch (err) {
     bucketSelect.innerHTML = '<option value="">Backend offline</option>';
+    bucketDropdownMenu.innerHTML =
+      '<button type="button" class="bucket-dropdown-item disabled" disabled>Backend offline</button>';
+    bucketDropdownLabel.textContent = "Backend offline";
   }
 }
 
@@ -67,7 +148,7 @@ createBucketBtn.addEventListener("click", async () => {
     showStatus(bucketStatus, `Bucket "${name}" created!`, "success");
     newBucketName.value = "";
     await loadBuckets();
-    bucketSelect.value = data.id;
+    setBucketSelection(String(data.id));
 
     chrome.storage.local.set({ lastBucketId: String(data.id) });
   } catch (err) {
@@ -131,7 +212,7 @@ loadContextBtn.addEventListener("click", async () => {
         `Saved! ${data.chunks_count} chunks stored (${severity})`,
         "success",
       );
-      chrome.storage.local.set({ lastBucketId: bucketId, lastContextBucketId: bucketId });
+      chrome.storage.local.set({ lastBucketId: bucketId });
     }
   } catch (err) {
     showStatus(contextStatus, "Failed: " + err.message, "error");
